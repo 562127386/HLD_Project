@@ -1,0 +1,203 @@
+﻿@*------------------------------------------------------------------------------
+    *     此代码由T4模板自动生成
+    *	   生成时间 2018-12-06 18:24:36
+    *     ©为之团队
+    *------------------------------------------------------------------------------*@
+
+@{
+    /**/
+
+    ViewBag.Title = "订单信息查看";
+    Layout = "~/Views/Shared/_LayoutBui.cshtml";
+}
+<style type="text/css">
+    /*防止动态增加图标时抖动*/
+    .register-page .bui-input {
+        height: .6rem;
+    }
+
+    .bui-box .span1 > .bui-btn {
+        border-right: 0;
+    }
+
+    .bui-box .span1:first-child > .bui-btn {
+        border-left: 0;
+    }
+
+    .btn-send {
+        display: inline-block;
+        color: #52a4ff;
+        font-size: 0.2rem;
+        padding: 0 0.1rem;
+        min-height: .4rem;
+        height: .5rem;
+        line-height: .5rem;
+        border: 1px solid #52a4ff;
+    }
+
+        .btn-send.disabled {
+            border: 1px solid #dedede;
+        }
+
+    .btn-detele {
+        padding-top: 0.02rem;
+        padding-bottom: 0.05rem;
+        min-height: 0.01rem;
+        float: right;
+    }
+
+    .bui-select-form {
+        margin-bottom: .2rem;
+    }
+
+        .bui-select-form .bui-input {
+            text-align: right;
+        }
+</style>
+<script>
+    var pageview = {};
+    bui.ready(function () {
+        // 页面初始化
+        $('html').height("100%");
+        $('body').height("100%");
+        $('main').height("100%");
+        pageview.init();
+    })
+
+    pageview.bind = function () {
+        /*初始化页面的链接跳转*/
+        bui.btn({ id: "#page", handle: ".bui-btn,.bui-btn-text" }).load();
+    }
+
+    pageview.init = function () {
+
+        $.ajax({
+            type: 'GET',
+            url: "/IOT/IOT_Order_Sec/GetFormJson?keyValue=" + $("#Id").val(),
+            dataType: 'json',
+            success: function (data) {
+                $("#form1").formSerialize(data);
+                var OrderDate = DateFormat(new Date(data.OrderDate), "yyyy-MM-dd");
+                $("#OrderDate").val(OrderDate);
+                var OrderBegin_Time = DateFormat(new Date(data.OrderBegin_Time), "yyyy-MM-dd HH:mm");
+                $("#OrderBegin_Time").val(OrderBegin_Time);
+                var OrderEnd_Time = DateFormat(new Date(data.OrderEnd_Time), "yyyy-MM-dd HH:mm");
+                $("#OrderEnd_Time").val(OrderEnd_Time);
+            }
+        });
+    
+    }
+
+    function DateFormat(date, fmt) {
+        var o = {
+            "M+": date.getMonth() + 1, //月份 
+            "d+": date.getDate(), //日 
+            "H+": date.getHours(), //小时 
+            "m+": date.getMinutes(), //分 
+            "s+": date.getSeconds(), //秒 
+            "q+": Math.floor((date.getMonth() + 3) / 3), //季度 
+            "S": date.getMilliseconds() //毫秒 
+        };
+        if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
+        for (var k in o)
+            if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+        return fmt;
+    }
+
+    //关闭Form
+    function closeForm(flag) {
+        //1不刷新，2提交刷新
+        window.parent.closeIframe(flag);
+    }
+
+
+</script>
+
+<form id="form1">
+    <input type="hidden" id="Id" value="@ViewBag.Id" />
+    <div id="page" class="bui-page register-page">
+        <header class="bui-bar">
+            <div class="bui-bar">
+                <div class="bui-bar-left">
+                    <a class="bui-btn" onclick="closeForm(1);"><i class="icon-back"></i></a>
+                </div>
+                <div class="bui-bar-main">订单信息查看</div>
+                <div class="bui-bar-right">
+                </div>
+            </div>
+        </header>
+        <main>
+            <ul class="bui-list  nav-list  bui-select-form">
+                <li class="bui-btn bui-box clearactive" id="select">
+                    <label>订单日期</label>
+                    <div class="span1"><input type="text" id="OrderDate" name="OrderDate" readonly class="bui-input"></div>
+                </li>
+                <li class="bui-btn bui-box clearactive">
+                    <label class="bui-label" for="user">产线名称</label>
+                    <div class="span1">
+                        <div class="bui-input">
+                            <input id="ProductLineName" name="ProductLineName" type="text" class="required" readonly placeholder="请输入产线名称">
+                        </div>
+                    </div>
+                </li>
+                <li class="bui-btn bui-box clearactive">
+                    <label class="bui-label" for="user">名称</label>
+                    <div class="span1">
+
+                        <div class="bui-input">
+                            <input type="hidden" id="PCode" name="PCode" />
+                            <input id="PName" name="PName" type="text" class="required" readonly placeholder="请输入产品名称">
+                        </div>
+
+                    </div>
+                </li>
+
+                <li class="bui-btn bui-box clearactive">
+                    <label class="bui-label" for="user">订单号</label>
+                    <div class="span1">
+                        <div class="bui-input">
+                            <input id="OrderName" name="OrderName" type="text" class="required" readonly placeholder="请输入订单编码">
+                        </div>
+                    </div>
+                </li>
+
+                <li class="bui-btn bui-box clearactive">
+                    <label class="bui-label" for="user">计划数</label>
+                    <div class="span1">
+                        <div class="bui-input">
+                            <input id="PlanQuantity" name="PlanQuantity" type="number" class="required" readonly placeholder="请输入计划数">
+                        </div>
+                    </div>
+                </li>
+                <li class="bui-btn bui-box clearactive">
+                    <label class="bui-label" for="user">合格数</label>
+                    <div class="span1">
+                        <div class="bui-input">
+                            <input id="QualifyQuantity" name="QualifyQuantity" type="number" class="required" readonly placeholder="请输入计划数">
+                        </div>
+                    </div>
+                </li>
+                <li class="bui-btn bui-box clearactive">
+                    <label class="bui-label" for="user">不合格数</label>
+                    <div class="span1">
+                        <div class="bui-input">
+                            <input id="UnqualifyQuantity" name="UnqualifyQuantity" type="number" class="required" readonly placeholder="请输入计划数">
+                        </div>
+                    </div>
+                </li>
+                <li class="bui-btn bui-box clearactive" id="select">
+                    <label>订单开始时间</label>
+                    <div class="span1"><input type="text" id="OrderBegin_Time" name="OrderBegin_Time" readonly class="bui-input"></div>
+
+                </li>
+                <li class="bui-btn bui-box clearactive" id="select">
+                    <label>订单结束时间</label>
+                    <div class="span1"><input type="text" id="OrderEnd_Time" name="OrderEnd_Time" readonly class="bui-input"></div>
+
+                </li>
+
+            </ul>
+        </main>
+
+    </div>
+</form>

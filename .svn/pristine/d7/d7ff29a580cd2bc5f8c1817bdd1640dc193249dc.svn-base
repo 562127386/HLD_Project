@@ -1,0 +1,626 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>企业生产设备数据监控</title>
+    <script type="text/javascript" src="/Plugins/JFine.IOT/Content/js/jquery.js"></script>
+    <script src="~/Content/js/bootstrap/bootstrap.min.js"></script>
+    <link href="~/Content/js/bootstrap/bootstrap.min.css?v=1.0.3" rel="stylesheet" />
+    <link rel="stylesheet" href="/Plugins/JFine.IOT/Content/css/comon0.css">
+    <script src="~/Content/js/signalR/jquery.signalR-2.2.3.min.js"></script>
+    <script type="text/javascript" src="~/signalr/hubs"></script>
+    <script src="~/Content/js/highcharts/highcharts-7.1.2.js"></script>
+    <script src="~/Content/js/highcharts/highcharts-more.js"></script>
+    <script src="~/Content/js/highcharts/jquery.AshAlom.gaugeMeter-2.0.0.min.js"></script>
+    <link href="~/Content/js/highcharts/default.css" rel="stylesheet" />
+    <link href="~/Content/js/highcharts/styles.css?v=dd1.3330.2" rel="stylesheet" />
+    @*<link href="~/Content/js/highcharts/normalize.css" rel="stylesheet" />*@
+    <script>
+        var checkbus;
+        var qualifyQuantity =@ViewBag.ProceedOrder.QualifyQuantity;
+        var planQuantity =@ViewBag.ProceedOrder.PlanQuantity;
+        var oder_sum_Q=@ViewBag.Order_Sum_Q;
+        var pcode = '@ViewBag.ProceedOrder.PCode';
+        var CurrentGatewayValues = JSON.parse('@Html.Raw(ViewBag.CurrentGatewayValues)');
+        var siblingsJson=JSON.parse('@Html.Raw(ViewBag.SiblingsJson)');
+        var xAxis_Day_Array = { "9": "9:00", "10": "10:00", "11": "11:00", "12": "12:00", "13": "13:00", "14": "14:00", "15": "15:00", "16": "16:00", "17": "17:00", "18": "18:00", "19": "19:00","20": "20:00"};
+        var xAxis_Night_Array = { "21": "21:00", "22": "22:00", "23": "23:00", "0": "0:00", "1": "1:00", "2": "2:00", "3": "3:00", "4": "4:00", "5": "5:00", "6": "6:00", "7": "7:00", "8": "8:00" };
+        var t = null;
+        t = setTimeout(time, 1000);/*開始运行*/
+        function time() {
+            clearTimeout(t);/*清除定时器*/
+            dt = new Date();
+            var y = dt.getFullYear();
+            var mt = dt.getMonth() + 1;
+            var day = dt.getDate();
+            var h = dt.getHours();
+            var m = dt.getMinutes();
+            var s = dt.getSeconds();
+            document.getElementById("showTime").innerHTML = y + "-" + mt + "-" + day + " " + h + ":" + m + ":" + s;
+            t = setTimeout(time, 1000);
+        }
+        function progressBar() {
+            //$.each($(".bar"), function () {
+            //    var randomWidth = randomNum(150, 230);
+            //    $(this).css("width", randomWidth+"px");
+            //})
+            //初始化js进度条
+            //$(".bar").css("width", "0px");
+            //进度条的速度，越小越快
+            var speed = 20;
+            bar = setInterval(function () {
+                $.each($(".bar"), function () {
+                    var quantity = parseInt($(this).parent().find(".QualifyQuantitySpan").text());
+                    var planQuantity = parseInt($(this).parent().find(".PlanQuantitySpan").text());
+                    nowWidth = parseInt($(this).parent().width()) * quantity / planQuantity;
+                    //宽度要不能大于进度条的总宽度
+                    if (nowWidth <= 480) {
+                        //barWidth = (nowWidth + 1) + "px";
+                        $(this).css("width", nowWidth);
+                    } else {
+                        //进度条读满后，停止
+                        clearInterval(bar);
+                    }
+                })
+
+            }, speed);
+        }
+        $(window).load(function () {
+            $(".loading").fadeOut();
+            checkbus();
+            loadGraph();
+            //更新环形占比
+            var percent_update = parseInt(parseInt(qualifyQuantity) / parseInt(planQuantity) * 100) >= 100 ? 100 : parseInt(parseInt(qualifyQuantity) / parseInt(planQuantity) * 100);
+            $("#GaugeMeter_20").data("percent", percent_update);
+            $("#GaugeMeter_20").gaugeMeter();
+            Refresh();
+            IntervalRefreshGraph();
+        })
+        function checkbus() {
+            checkbusHub = $.connection.checkbus;
+            checkbusHub.client.ReceiveResult = function (deviceCode, result, dataTime) {
+                if (result == 1) {
+                    $("#qualifySpan").text(parseInt($("#qualifySpan").text()) + 1);
+                    $("#roofQualifySpan").text(parseInt($("#roofQualifySpan").text()) + 1);
+                    //更新圆环占比
+                    var quantity_qualify = parseInt($("#qualifySpan").text());
+                    var percent_update = parseInt(quantity_qualify / parseInt(planQuantity) * 100);
+                    $("#GaugeMeter_20").empty();
+                    $("#GaugeMeter_20").data("percent", percent_update);
+                    $("#GaugeMeter_20").gaugeMeter();
+                    //右侧生产中订单实时更新
+                    $(".rightRowSpan_Div .spanStatus span").each(function () {
+                        if ($(this).text() == "生产中") {
+                            var $spanQualify = $(this).parent().siblings().find(".spanQualify")
+                            $spanQualify.text(parseInt($spanQualify.text() + 1));
+                        }
+                    })
+                }
+                else if (result == 0) {
+                    $("#unQualifySpan").text(parseInt($("#unQualifySpan").text()) + 1);
+                    //右侧生产中订单实时更新
+                    $(".rightRowSpan_Div .spanStatus span").each(function () {
+                        if ($(this).text() == "生产中") {
+                            var $spanUnQualify = $(this).parent().siblings().find(".spanUnQualify")
+                            $spanUnQualify.text(parseInt($spanUnQualify.text() + 1));
+                        }
+                    })
+
+                }
+            };
+            orderBusHub = $.connection.orderBusHub;
+            orderBusHub.client.UpdateOrderBoard = function (data) {
+
+                location.reload();
+            };
+            // Start the connection.
+            $.connection.hub.start().done(function () {
+                console.log("modbusHub已连接");
+                console.log("orderBusHub已连接");
+            });
+        }
+        function Refresh() {
+            setTimeout(function () {
+                location.reload();
+                console.log("自动刷新时间:"+new Date().getTime());
+            },1000*60*60.5632);
+        }
+        function IntervalRefreshGraph() {
+            setTimeout(function () {
+                location.reload();
+                console.log("自动刷新图表:" + new Date().getTime());
+            }, 1000 * 60 * 10);
+        }
+        function loadGraph() {
+            //获取小时计划数量
+            var planQuantityData = [];
+            //获取订单日期中的小时合计
+            var plan_map = loadPlanHour();
+            //var averagePlanQuantity = parseInt(oder_sum_Q / 12);
+            //for (var i = 0; i < 12; i++) {
+            //    planQuantityData.push(averagePlanQuantity);
+            //}
+            var hourQuantityData = [];
+            //根据时间动态显示x轴数据
+            var currentHour = new Date().getHours();
+            var x_Data = [];
+            var y_Hour_Data = [];
+            var y_map = new Map();
+            for (var i = 0; i < CurrentGatewayValues.length; i++) {
+                y_map.set(CurrentGatewayValues[i]["currentHour"], CurrentGatewayValues[i]["hourQuantity"]);
+            }
+            //根据时间更新小时产量和计划产量
+            if (currentHour >= 9 && currentHour<=20) {
+                for (var key in xAxis_Day_Array) {
+                    x_Data.push(xAxis_Day_Array[key]);
+                    if (y_map.has(key)) {
+                        y_Hour_Data.push(y_map.get(key));
+                    }
+                    else {
+                        y_Hour_Data.push(0);
+                    }
+                    if (plan_map.has(key)) {
+                        planQuantityData.push(parseInt(oder_sum_Q / plan_map.size));
+                    }
+                    else {
+                        planQuantityData.push(0);
+                    }
+                  }
+                }
+            else {
+                for (var key in xAxis_Night_Array) {
+                    x_Data.push(xAxis_Night_Array[key]);
+                    if (y_map.has(key)) {
+                        y_Hour_Data.push(y_map.get(key));
+                    }
+                    else {
+                        y_Hour_Data.push(0);
+                    }
+                    if (plan_map.has(key)) {
+                        planQuantityData.push(parseInt(oder_sum_Q / plan_map.size));
+                    }
+                    else {
+                        planQuantityData.push(0);
+                    }
+                }
+            }
+            //var colors = ['red', '#90BF18', '#EDCA4E'];
+            //var colors = ['#F59656', '#90BF18', '#EDCA4E'];
+            //Highcharts.getOptions().colors = Highcharts.map(colors, function (color) {
+            //    return {
+            //        radialGradient: { cx: 0, cy: -0.8, r: 2.3 },
+            //        stops: [[0, color], [2, Highcharts.Color(color).brighten(14).get('rgb')] // darken
+            //        ]
+            //    };
+            //});
+            var chart = Highcharts.chart('container_column', {
+                chart: {
+                    type: 'column',
+                    backgroundColor: 'rgba(0,0,0,0)'
+                },
+                title: {
+                    text: '',
+                    style: {
+                        color:'red'
+                    }
+                },
+                exporting: false,
+                credits: {
+                    enabled: false
+                },
+                style: {
+                    color: '#ff0000',
+                    fontSize: "12px",
+                    fontWeight: "blod",
+                    fontFamily: "Courier new"
+                },
+                xAxis: {
+                    categories: x_Data,
+                    labels: {
+                        style: {
+                            color:'white'
+                        }
+                    },
+                    crosshair: true
+                },
+                yAxis: {
+                    min: 0,
+                    labels: {
+                        style: {
+                            color: 'white'
+                        }
+                    },
+                    title: {
+                        text: '小时产量',
+                        style: {
+                            color: 'white'
+                        }
+                    }
+                },
+                tooltip: {
+                    // head + 每个 point + footer 拼接成完整的 table
+                    headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
+                    pointFormat: '<tr><td style="color:{series.color};padding:0">{series.name}: </td>' +
+                        '<td style="padding:0"><b>{point.y:.1f} 件</b></td></tr>',
+                    footerFormat: '</table>',
+                    shared: true,
+                    useHTML: true
+                },
+
+                plotOptions: {
+                    column: {
+                        borderWidth: 0
+                    }
+                },
+                legend: {
+                    labelFormatter: function () {
+                        return '<span style="color:white"> ' + this.name + "</span>";
+                    }
+                },
+                series: [{
+                    name: '计划数量',
+                    showInLegend: true,
+                    data: planQuantityData,
+                    dataLabels: {
+                        enabled: true,
+                        style: {
+                            color: 'white',
+                            fontSize: '1vw',
+                            fontFamily: 'Verdana, sans-serif'
+                        }
+
+                    },
+                }, {
+                    name: '小时产量',
+                    showInLegend: true,
+                   color: "green",
+                    data: y_Hour_Data,
+                    dataLabels: {
+                        enabled: true,
+                        style: {
+                            color:'white',
+                            fontSize: '1vw',
+                            fontFamily: 'Verdana, sans-serif'
+                        }
+
+                    },
+                }]
+            });
+
+        }
+
+        function loadPlanHour() {
+            var siblingMap = new Map();
+            for (var i = 0; i < siblingsJson.length; i++) {
+                var order_begin = new Date(siblingsJson[i]["OrderBegin_Time"]);
+                var order_end = new Date(siblingsJson[i]["OrderEnd_Time"]);
+                var hour_begin = order_begin.getHours();
+                var hour_diff = getHourDiff(order_begin, order_end);
+                for (var j = hour_begin; j <= hour_begin + hour_diff; j++) {
+                    if (!siblingMap.has(j.toString())) {
+                        siblingMap.set(j.toString(), j + ":00");
+                    }
+                }
+            }
+            return siblingMap;
+        }
+        //获取小时时间差
+        function getHourDiff(date1, date2) {
+
+            var s1 = date1.getTime(), s2 = date2.getTime();
+
+            var total = (s2 - s1) / 1000;
+
+            var day = parseInt(total / (24 * 60 * 60));//计算整数天数
+
+            var afterDay = total - day * 24 * 60 * 60;//取得算出天数后剩余的秒数
+
+            var hour = parseInt(afterDay / (60 * 60));//计算整数小时数
+            return hour;
+        }
+
+    </script>
+    <style type="text/css">
+        h1 {
+            font-size: 3vw !important;
+            position: absolute;
+            left: 40%;
+            line-height: 0px !important;
+            top: 50%;
+        }
+
+        .roofDiv {
+            position: absolute;
+            width: 100%;
+            height: 5%;
+            top: 10%;
+            /*border-left: 15px solid #005aff;
+            border-right: 15px solid #005aff;*/
+            top: 10%;
+            padding: 0px;
+            background-color: #555;
+        }
+
+            .roofDiv .roofDiv_Title_Span {
+                position: relative;
+                top: 10%;
+                margin-left: 10%;
+                font-size: 1.5vw;
+                color: white;
+            }
+
+            .roofDiv .roofDiv_Value_Span {
+                position: relative;
+                margin-left: 2%;
+                font-size: 1.5vw;
+                color: white;
+            }
+
+        .mainbox {
+            position: absolute;
+            width: 100%;
+            height: 60%;
+            /*border-left: 15px solid #005aff;
+            border-right: 15px solid #005aff;*/
+            top: 15%;
+            padding: 0px;
+            background-color: gray;
+        }
+
+        .bottomDiv {
+            position: absolute;
+            width: 100%;
+            height: 25%;
+            top: 75%;
+            background-color: gray;
+        }
+
+        .mainLeft_Div {
+            position: relative;
+            width: 62%;
+            height: 97%;
+            background-color: #3333339e;
+            border-radius: 0.5vw;
+            /*border: 5px solid gray;*/
+            float: left;
+            margin: 0.5%;
+        }
+
+        .leftRow_Div_First {
+            position: relative;
+            width: 60%;
+            height: 100%;
+            float: left;
+        }
+
+        .leftRow_Div_Sec {
+            position: relative;
+            width: 40%;
+            height: 100%;
+            float: right;
+        }
+
+        .leftRow_Div {
+            position: relative;
+            width: 100%;
+            height: 33%;
+        }
+
+        .leftRowSpan_Div {
+            position: relative;
+            width: 45%;
+            height: 100%;
+            float: left;
+            text-align: left;
+        }
+
+            .leftRowSpan_Div span:nth-child(2n) {
+                position: relative;
+                top: 30%;
+                font-size: 2.5vw;
+                color: white;
+                left: 8%;
+            }
+
+            .leftRowSpan_Div span:nth-child(2n+1) {
+                position: relative;
+                top: 30%;
+                font-size: 1.5vw;
+                color: white;
+                left: 5%;
+            }
+
+        .mainRight_Div {
+            position: relative;
+            width: 36.5%;
+            height: 97%;
+            float: left;
+            background-color: #3333339e;
+            /*background-color: cornflowerblue;*/
+            border-radius: 0.5vw;
+            margin-top: 0.5%;
+        }
+
+        .rightRow_Div {
+            position: relative;
+            width: 98%;
+            /*border: 5px solid gray;*/
+            border-radius: 0.5vw;
+            height: 30%;
+            margin: 1%;
+            background-color: #08080859;
+        }
+
+        .rightRowSub_Div {
+            position: relative;
+            width: 95%;
+            float: left;
+            height: 48%;
+            left: 5%;
+            /*text-align: center;*/
+        }
+
+        .rightRowSpan_Div {
+            position: relative;
+            width: 33%;
+            height: 100%;
+            float: left;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+            .rightRowSpan_Div span {
+                position: relative;
+                top: 30%;
+                font-size: 1.5vw;
+                color: white;
+            }
+
+        .progressBar {
+            width: 80%;
+            height: 50%;
+            border: 1px solid #98AFB7;
+            border-radius: 5px;
+            /*left: 7%;*/
+            top: 15%;
+            position: relative;
+        }
+
+        .bar {
+            width: 0px;
+            height: 100%;
+            border-radius: 5px;
+            background: #5EC4EA;
+        }
+
+        #container_column {
+            position: relative;
+            height: 98%;
+            width: 99%;
+            margin-left: 0.5vw;
+            border-radius:0.5vw;
+            background-color: #555;
+        }
+
+
+        .GaugeMeter {
+            top: 10%;
+        }
+
+        .leftRow_Div_Sec_Info {
+            position: relative;
+            height: 45%;
+            width: 98%;
+            background-color: rgba(0,0,0,.25);
+            margin: 1%;
+            border-radius: 1vw;
+        }
+
+            .leftRow_Div_Sec_Info span {
+                position: relative;
+                color: white;
+                display: block;
+                margin-top: 10%;
+                margin-left: 5%;
+            }
+
+        .leftRow_Div_Sec_Percent {
+            position: relative;
+            height: 55%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div style="background:-webkit-linear-gradient( top, #2e287a, #005aff);position:absolute;width:100%;height:10%;">
+        <div class="head" style="height:100%;background-color:#555">
+            <img style="position: absolute;width:10%;height:auto;padding-left: 0px;top:10%;left:1%;" src="/Content/images/hld_purewhite.png" />
+            <div class="weather"><span id="showTime"></span></div>
+            <h1>@ViewBag.ProceedOrder.ProductLineName</h1>
+        </div>
+    </div>
+    <div class="roofDiv">
+        <span class="roofDiv_Title_Span">当班产量:<span id="roofQualifySpan" class="roofDiv_Value_Span">@ViewBag.ProceedOrder.QualifyQuantity</span></span>
+        <span class="roofDiv_Title_Span">班组:<span class="roofDiv_Value_Span">@ViewBag.SquadInfo.Classify</span></span>
+        <span class="roofDiv_Title_Span">定岗人员:<span class="roofDiv_Value_Span">34</span></span>
+        <span class="roofDiv_Title_Span">上岗人员:<span class="roofDiv_Value_Span">32</span></span>
+    </div>
+    <div class="mainbox">
+        <div class="mainLeft_Div">
+            <div class="leftRow_Div_First">
+                <div class="leftRow_Div">
+                    <div class="leftRowSpan_Div"><span>型号:</span><span>@ViewBag.ProceedOrder.PCode</span></div>
+                    <div class="leftRowSpan_Div"><span>名称:</span><span>@ViewBag.ProceedOrder.PName</span></div>
+                </div>
+
+                <div class="leftRow_Div">
+                    <div class="leftRowSpan_Div"><span>计划数:</span><span>@ViewBag.ProceedOrder.PlanQuantity</span></div>
+                    <div class="leftRowSpan_Div"><span>状态:</span><span style="background-color:@ViewBag.StatusColor;border-left:1vw solid @ViewBag.StatusColor;border-right:1vw solid  @ViewBag.StatusColor">@ViewBag.ProceedStatus</span></div>
+                </div>
+
+                <div class="leftRow_Div">
+                    <div class="leftRowSpan_Div"><span>合格数:</span><span id="qualifySpan" style="background-color:green;border-left:1vw solid green;border-right:1vw solid green">@ViewBag.ProceedOrder.QualifyQuantity</span></div>
+                    <div class="leftRowSpan_Div"><span>不合格数:</span><span id="unQualifySpan" style="background-color:red;border-left:1vw solid red;border-right:1vw solid red">@ViewBag.ProceedOrder.UnqualifyQuantity</span></div>
+                </div>
+            </div>
+            <div class="leftRow_Div_Sec">
+                <div class="leftRow_Div_Sec_Info">
+                    <div style="position:relative;width:60%;height:100%;float:left;"><span style="font-size:1.2vw">姓名:&nbsp;&nbsp;&nbsp;@ViewBag.SquadInfo.Name</span><span style="font-size:1.2vw">岗位:&nbsp;&nbsp;&nbsp;@ViewBag.SquadInfo.Position</span><span style="font-size:1.2vw">电话:&nbsp;&nbsp;&nbsp;@ViewBag.SquadInfo.Phone</span></div>
+                    <div style="position:relative;width:40%;height:100%;float:right;">  <img style="position: relative;width:80%;height:75%;top:5%;" src="/Content/images/workerPhoto.jpg" /></div>
+                </div>
+                <div class="leftRow_Div_Sec_Percent">
+                    <div class="GaugeMeter" id="GaugeMeter_20" data-percent="10" data-animationstep="0" data-append="%" data-size="150" data-theme="DarkGreen-LightGreen" data-label="订单完成率" data-style="Arch" data-width="15"></div>
+                </div>
+
+            </div>
+        </div>
+        <div class="mainRight_Div">
+            @using JFine.Plugins.IOT.Domain.Models.IOT;
+            @foreach (IOT_Order_SecEntity item in ViewBag.ProceedSiblingsOrder)
+            {
+                int? PlanQuantity = item.PlanQuantity;
+                int? QualifyQuantity = item.QualifyQuantity == null ? 0 : item.QualifyQuantity;
+                int? UnqualifyQuantity = item.UnqualifyQuantity == null ? 0 : item.UnqualifyQuantity;
+                string status = string.Empty;
+                string color = string.Empty;
+                switch (item.ProceedStatus)
+                {
+                    case "0":
+                        status = "未开始";
+                        color = "gray";
+                        break;
+                    case "1":
+                        status = "生产中";
+                        color = "green";
+                        break;
+                    case "2":
+                        status = "暂停中";
+                        color = "red";
+                        break;
+                    case "3":
+                        status = "已完成";
+                        color = "blue";
+                        break;
+                    default:
+                        break;
+                }
+                <div class="rightRow_Div">
+                    <div class="rightRowSub_Div"><div class="rightRowSpan_Div"><span>型号:@item.PCode</span></div><div class="rightRowSpan_Div"><span>名称:@item.PName</span></div><div class="rightRowSpan_Div spanStatus"><span style="background-color:@color;border-radius:10px;border-left:solid 10px @color;border-right:solid 10px @color;">@status</span></div></div>
+                    <div class="rightRowSub_Div"><div class="rightRowSpan_Div"><span>计划数:@PlanQuantity</span></div><div class="rightRowSpan_Div"><span>合格数:</span><span class="spanQualify">@QualifyQuantity</span></div><div class="rightRowSpan_Div"><span>不合格数:</span><span class="spanUnQualify">@UnqualifyQuantity</span></div></div>
+                    @*<div class="rightRowSub_Div"> <div class="progressBar"><div class="bar" style="width:160px;"></div><span style="font-size:12px;position:relative;top:-25px;">完成:<span class="QualifyQuantitySpan">@QualifyQuantity</span> 总数:<span class="PlanQuantitySpan">@item.PlanQuantity</span></span></div></div>*@
+                </div>
+            }
+        </div>
+    </div>
+    <div class="bottomDiv">
+        <div id="container_column"></div>
+        @*<div style="margin-left:40%;margin-top:15px;">
+                <div style="background-color:green;width:20px;height:10px;float:left;display:inline"></div>
+                <div style="width:40px;height:10px;float:left;margin-left:5px;display:inline"><span style="font-size:10px;position:relative;bottom:10px;">生产中</span></div>
+                <div style="background-color:orange;width:20px;height:10px;float:left;margin-left:5px;display:inline"></div>
+                <div style="width:40px;height:10px;float:left;margin-left:5px;display:inline"><span style="font-size:10px;position:relative;bottom:10px;">暂停生产</span></div>
+
+            </div>*@
+    </div>
+</body>
+</html>

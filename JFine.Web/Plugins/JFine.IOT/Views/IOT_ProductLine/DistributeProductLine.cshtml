@@ -1,0 +1,61 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<script>
+
+    var keyValue = $.request("keyValue");
+    $(function () {
+        gridList();
+    })
+    function gridList() {
+        var $gridList = $("#gridProductLineList");
+        $gridList.dataGrid({
+            url: "/IOT/IOT_ProductLine/GetRelvantProductLine?keyValue=" + keyValue,
+            height: $(window).height() - 60,
+            multiselect: true,
+            rownumbers: true,
+            rowNum: -1,
+            colModel: [
+                { label: "", name: "Id", width: 150, align: 'left', hidden: true },
+
+                { label: "用户Id", name: "UserId", width: 150, align: 'left', hidden: true },
+
+                { label: "产线编码", name: "LineCode", width: 150, align: 'left' },
+
+                { label: "产线名称", name: "LineName", width: 150, align: 'left' },
+            ],
+            loadComplete: function () {
+                var rows = $gridList.jqGrid("getDataIDs");
+                if (rows != undefined) {
+                    for (var i in rows) {
+                        var rowData = $gridList.jqGrid('getRowData', rows[i]);
+                        if (rowData.UserId == keyValue) {
+                            //$("#gridDeptList").setSelection(rows[i]);
+                            $("#gridProductLineList").jqGrid('setSelection', rows[i]);
+                        }
+                    }
+                }
+
+            }
+        });
+
+    }
+    function submitForm() {
+        var productLineListJson = $("#gridProductLineList").jqGridRows();
+        if (productLineListJson == undefined && deptListJson == null) {
+            productLineListJson = [];
+        }
+        $.submitForm({
+            url: "/IOT/IOT_ProductLine/SaveRelvantProductLine?keyValue=" + keyValue,
+            param: { "productLineListJson": JSON.stringify(productLineListJson) },
+            success: function () {
+
+            }
+        })
+    }
+</script>
+
+<div class="gridPanel">
+    <table id="gridProductLineList"></table>
+</div>

@@ -1,0 +1,273 @@
+﻿@*------------------------------------------------------------------------------
+    *     此代码由T4模板自动生成
+    *	   生成时间 2019-09-29 17:04:16
+    *     ©为之团队
+    *------------------------------------------------------------------------------*@
+
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_LayoutBui.cshtml";
+}
+<script>
+    var page_jf = {
+        rows: 5,//每页行数
+        page: 1,//当前页
+        sidx: 'Id',//排序列
+        sord: 'asc',//排序类型
+        //records: 0,//总记录数
+        //total: 0,//总页数
+        LoadEnd: false
+        //conditionJson:"1=1"
+    }
+    $(function () {
+        var dateNow = DateFormat(new Date(), "yyyy-MM-dd");
+        var queryJson = { orderDate_Begin: dateNow, orderDate_End: dateNow };
+        gridList(queryJson);
+        bindSelect();
+    })
+    function bindSelect() {
+        // 绑定订单日期
+        var OrderDate_Begin = $("#OrderDate_Begin");
+        var uiPickerdate = bui.pickerdate({
+            handle: "#OrderDate_Begin",
+            // input 显示的日期格式
+            formatValue: "yyyy-MM-dd",
+            cols: {
+                hour: "none",
+                minute: "none",
+                second: "none"
+            },
+            onChange: function (value) {
+                OrderDate_Begin.val(value);
+            }
+        });
+        var OrderDate_End = $("#OrderDate_End");
+        var uiPickerdate = bui.pickerdate({
+            handle: "#OrderDate_End",
+            // input 显示的日期格式
+            formatValue: "yyyy-MM-dd",
+            cols: {
+                hour: "none",
+                minute: "none",
+                second: "none"
+            },
+            onChange: function (value) {
+                OrderDate_End.val(value);
+            }
+        });
+        $(".btn-search").click(function () {
+            var orderDate_Begin = $("#OrderDate_Begin").val();
+            var orderDate_End = $("#OrderDate_End").val();
+            var searchText = $("#searchText").val();
+            var queryJson = {};
+            queryJson.orderDate_Begin = orderDate_Begin;
+            queryJson.orderDate_End = orderDate_End;
+            queryJson.searchText = searchText;
+            $(".bui-list").html('');
+            gridList(queryJson);
+        })
+    }
+
+    function gridList(queryJson) {
+        // 假设: userlist.json 返回的数据格式为: { status:200, list:[] }, 配置 field: {data:"list"}
+        // 初始化
+        //var queryJson = {};
+        queryJson = JSON.stringify(queryJson)
+        var uiList = bui.list({
+            id: "#scrollList",
+            url: "/IOT/IOT_Order_Sec/GetGridJson?queryJson=" + queryJson,
+            pageSize: 5,
+            data: page_jf,
+            // 如果返回的数组字段不在data,通过field重新定义
+            field: {
+                page: "page",
+                //size: "pageSize",
+                data: "rows"
+            },
+            template: function (data) {
+                var html = "";
+                data.map(function (el, index) {
+                    var startStatus = el.StartStatus == 0 ? "未启动" : "已启动";
+                    var proceedStatus;
+                    var proceedColor;
+                    var orderDate = DateFormat(new Date(el.OrderDate), "yyyy-MM-dd");
+                    var qualifyQuantity = el.QualifyQuantity == null ? 0 : el.QualifyQuantity;
+                    switch (el.ProceedStatus) {
+                        case "0":
+                            proceedStatus = "未开始";
+                            proceedColor = "gray";
+                            break;
+                        case "1":
+                            proceedStatus = "生产中";
+                            proceedColor = "green";
+                            break;
+                        case "2":
+                            proceedStatus = "暂停中";
+                            proceedColor = "red";
+                            break;
+                        case "3":
+                            proceedStatus = "已完成";
+                            proceedColor = "blue";
+                            break;
+                        default:
+                            break;
+                    }
+                    html += '<div class="section-title" style="background-color:green;color:white">' + el.OrderName + '</div>'
+                        + '    <div class="bui-btn bui-box" onclick="editOrder(\'' + el.Id + '\')" id = "updateBL">'
+                        + '         <div class="span1">'
+                        + '             <h3 class="item-title">' + el.PName + '</h3>'
+                        + '             <p class="item-text"><span class="bui-label">状态</span><span class="span_button" style="background-color:' + proceedColor + ';border-left:10px solid ' + proceedColor + ';border-right:10px solid ' + proceedColor + ';color:white" onclick=proceedSpanClick2(\'' + el.Id + '\',event)>' + proceedStatus + '</span><span class="bui-label">订单日期</span><span class="bui-value">' + orderDate + '</span></p>'
+                        + '             <p class="item-text"><span class="bui-label">计划数量</span><span class="bui-value">' + el.PlanQuantity + '</span><span class="bui-label">合格数量</span><span class="bui-value">' + qualifyQuantity + '</span></p>'
+                        + '         </div>'
+                        + '         <i class="icon-listright"></i>'
+                        + '</div>'
+                });
+                return html;
+            }
+        });
+    }
+
+    function bindEvent() {
+        $(".bui-btn p:eq(0) .span_button:eq(0)").bind("click", function (e) {
+            var keyValue = $(this).attr("keyValue");
+            bui.confirm("确认是否启动订单?", function (e) {
+                //this 是指点击的按钮
+                var text = $(e.target).text();
+                if (text == "确定") {
+                    $.ajax({
+                        url: '/IOT/IOT_Order_Sec/OrderStart?keyValue=' + keyValue,
+                        type: 'POST',
+                        success: function (data) {
+                            location.reload();
+                        }
+                    })
+                }
+                this.close();
+                //e.stopPropagation();
+            });
+            return false;
+        })
+    }
+    function startSpanClick(keyValue, event) {
+        event.stopPropagation();
+        bui.confirm("确认是否启动订单?", function (e) {
+            //this 是指点击的按钮
+            var text = $(e.target).text();
+            if (text == "确定") {
+                $.ajax({
+                    url: '/IOT/IOT_Order_Sec/OrderStart?keyValue=' + keyValue,
+                    type: 'POST',
+                    success: function (data) {
+                        location.reload();
+                    }
+                })
+            }
+            this.close();
+
+        });
+    }
+    function proceedSpanClick(keyValue, event) {
+        event.stopPropagation();
+        bui.confirm("确认是否切换进行中订单?", function (e) {
+            //this 是指点击的按钮
+            var text = $(e.target).text();
+            if (text == "确定") {
+                $.ajax({
+                    url: '/IOT/IOT_Order_Sec/ChangeProceedOrder?keyValue=' + keyValue,
+                    type: 'POST',
+                    success: function (data) {
+                        location.reload();
+                    }
+                })
+            }
+            this.close()
+        });
+    }
+
+    function editOrder(keyValue) {
+        $(location).attr('href', '/IOT/IOT_Order_Sec/Form_Order_M?keyValue=' + keyValue);
+    }
+
+    function DateFormat (date,fmt) {
+        var o = {
+            "M+": date.getMonth() + 1, //月份 
+            "d+": date.getDate(), //日 
+            "H+": date.getHours(), //小时 
+            "m+": date.getMinutes(), //分 
+            "s+": date.getSeconds(), //秒 
+            "q+": Math.floor((date.getMonth() + 3) / 3), //季度 
+            "S": date.getMilliseconds() //毫秒 
+        };
+        if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
+        for (var k in o)
+            if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+        return fmt;
+    }
+
+</script>
+<style type="text/css">
+    .bui-label {
+        width: 2rem;
+    }
+
+    .bui-value {
+        width: 2.5rem;
+    }
+
+    .item-text {
+        font-size: 0.36rem;
+        color: black;
+    }
+
+    .span_button {
+        margin-right: 1rem;
+        border-radius: 1rem;
+    }
+
+    .span1 p {
+        margin-top: 0.3rem;
+    }
+</style>
+
+<div class="bui-page" id="page">
+    <header class="bui-bar">
+        <div class="bui-bar-left add-bar-width">
+            <a class="bui-btn" onclick="bui.back();">
+                <i class="icon-back"></i>
+            </a>
+        </div>
+        <div class="bui-bar-main">
+            <div  class="bui-input ring mini" style="display:-webkit-inline-box;width:40%">
+
+                <input type="text" id="OrderDate_Begin" class="bui-input" style="width:100%;" placeholder="订单开始日期">
+            </div>
+            <div  class="bui-input ring mini" style="display:-webkit-inline-box;width:40%">
+                <input type="text" id="OrderDate_End" class="bui-input" style="width:100%;" placeholder="订单结束日期">
+            </div>
+
+        </div>
+        <div class="bui-bar-right">
+            <a class="bui-btn" href="/IOT/IOT_Order_Sec/Form_Order_M">
+                <i class="icon-plus"></i>
+            </a>
+        </div>
+    </header>
+    <main>
+        <div class="bui-bar">
+            <div id="searchbar" class="bui-input ring mini span1">
+                <i class="icon-search"></i>
+                <input id="searchText" type="search" value="" placeholder="请输入关键字" />
+                <div class="btn-search" style="width:10%;background:whitesmoke">搜索</div>
+            </div>
+        </div>
+        <div id="scrollList" class="bui-scroll">
+            <div class="bui-scroll-head"></div>
+            <div class="bui-scroll-main">
+                <ul class="bui-list"></ul>
+            </div>
+            <div class="bui-scroll-foot"></div>
+        </div>
+    </main>
+</div>
+
+

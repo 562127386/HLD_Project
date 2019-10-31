@@ -1,0 +1,189 @@
+﻿@*------------------------------------------------------------------------------
+    *     此代码由T4模板自动生成
+    *	   生成时间 2019-09-29 17:04:16
+    *     ©为之团队
+    *------------------------------------------------------------------------------*@
+
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_LayoutBui.cshtml";
+}
+<script>
+    var GatewayValues = JSON.parse('@Html.Raw(ViewBag.GatewayValues)');
+    var xAxis_Day_Array = { "1": "1:00", "2": "2:00", "3": "3:00", "4": "4:00", "5": "5:00", "6": "6:00", "7": "7:00", "8": "8:00" ,"9": "9:00", "10": "10:00", "11": "11:00", "12": "12:00", "13": "13:00", "14": "14:00", "15": "15:00", "16": "16:00", "17": "17:00", "18": "18:00", "19": "19:00", "20": "20:00", "21": "21:00", "22": "22:00", "23": "23:00", "0": "0:00"};
+    $(function () {
+        bindSelect();
+        LoadGraph(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+    })
+    function bindSelect() {
+        // 绑定订单日期
+        var OrderDate_Begin = $("#OrderDate_Begin");
+        var dateTime = new Date();
+        dateTime = dateTime.setDate(dateTime.getDate());
+        dateTime = new Date(dateTime);
+        var uiPickerdate = bui.pickerdate({
+            handle: "#OrderDate_Begin",
+            // input 显示的日期格式
+            formatValue: "yyyy-MM-dd",
+            cols: {
+                hour: "none",
+                minute: "none",
+                second: "none"
+            },
+            value: dateTime,
+            onChange: function (value) {
+                OrderDate_Begin.val(value);
+                LoadGraph(new Date(value).getFullYear(), new Date(value).getMonth() + 1, new Date(value).getDate());
+            }
+        });
+    }
+
+    function bindEvent() {
+
+    }
+
+    function LoadGraph(year, month, day) {
+        var xAxisData = [];
+        for (var key in xAxis_Day_Array) {
+            xAxisData.push(xAxis_Day_Array[key]);
+        }
+        //获取产线数据,分产线
+        var seriesData = [];
+        var seriesDataMap = new Map();
+        for (var i = 0; i < GatewayValues.length; i++) {
+            var deviceCode = GatewayValues[i]["DeviceCode"];
+            if (deviceCode != "" && deviceCode != null) {
+                if (!seriesDataMap.has(deviceCode)) {
+                    seriesDataMap.set(deviceCode, deviceCode);
+                    var seriesSet = {};
+                    seriesSet.name = deviceCode;
+                    //获取每条产线data
+                    seriesSet.data = LoadDataByLineCode(deviceCode, year, month, day);
+                    seriesData.push(seriesSet);
+                }
+            }
+        }
+        var displayDate = $("#OrderDate_Begin").val();
+        var chart = Highcharts.chart('container', {
+            exporting: false,
+            credits: {
+                enabled: false
+            },
+            title: {
+                text: displayDate+' 产线小时产能汇总'
+            },
+            subtitle: {
+                text: ''
+            },
+            yAxis: {
+                title: {
+                    text: '小时产能'
+                }
+            },
+            xAxis: {
+                categories: xAxisData
+            },
+            legend: {
+                layout: 'horizontal',
+                align: 'center',
+                verticalAlign: 'bottom',
+            },
+            //plotOptions: {
+            //    series: {
+            //        label: {
+            //            connectorAllowed: false
+            //        },
+            //        pointStart: 2010
+            //    }
+            //},
+            series:seriesData,
+         
+        });
+    }
+    //根据产线获取小时产量
+    function LoadDataByLineCode(lineCode, year, month, day) {
+        var lineData = [];
+        var dataSet = new Map();
+        //获取当前产线小时数集合
+        for (var i = 0; i < GatewayValues.length; i++) {
+            if (lineCode == GatewayValues[i]["DeviceCode"] && GatewayValues[i]["Year"] == year && GatewayValues[i]["Month"] == month && GatewayValues[i]["DAY"]==day) {
+                dataSet.set(GatewayValues[i]["currentHour"], GatewayValues[i]["hourQuantity"])
+            }
+        }
+        for (var key in xAxis_Day_Array) {
+            if (dataSet.has(key)) {
+                lineData.push(dataSet.get(key));
+            }
+            else {
+                lineData.push(0);
+            }
+        }
+        return lineData;
+    }
+    function DateFormat(date, fmt) {
+        var o = {
+            "M+": date.getMonth() + 1, //月份
+            "d+": date.getDate(), //日
+            "H+": date.getHours(), //小时
+            "m+": date.getMinutes(), //分
+            "s+": date.getSeconds(), //秒
+            "q+": Math.floor((date.getMonth() + 3) / 3), //季度
+            "S": date.getMilliseconds() //毫秒
+        };
+        if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
+        for (var k in o)
+            if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+        return fmt;
+    }
+
+</script>
+<style type="text/css">
+    .bui-label {
+        width: 2rem;
+    }
+
+    .bui-value {
+        width: 2.5rem;
+    }
+
+    .item-text {
+        font-size: 0.36rem;
+        color: black;
+    }
+
+    .span_button {
+        margin-right: 1rem;
+        border-radius: 1rem;
+    }
+
+    .span1 p {
+        margin-top: 0.3rem;
+    }
+</style>
+
+<div class="bui-page" id="page">
+    <header class="bui-bar" style="display:block;">
+        <div class="bui-bar-left add-bar-width">
+            <a class="bui-btn" onclick="bui.back();">
+                <i class="icon-back"></i>
+            </a>
+        </div>
+    </header>
+    <main>
+        <div style="position:relative;width:100%;height:10%;">
+            <div class="bui-input ring mini" style="display:-webkit-inline-box;width:30%;float:right;top:20%;background:#999">
+                <input type="text" id="OrderDate_Begin" readonly class="bui-input" style="width:100%;font-size:0.4rem;color:white;text-align:center;" placeholder="订单开始日期">
+            </div>
+        </div>
+        <div id="container" style="width:100%;height:90%;position:relative;"></div>
+    </main>
+    <footer style="left: 0; position: fixed; bottom: 0; width: 100%;">
+        <!-- 底部d导航栏 -->
+        <ul class="bui-nav footer-nav">
+            <li class="bui-btn bui-box-vertical active"><a href="/IOT/IOT_Order_Sec/PLB_M_Index"><i class="icon">&#xe659;</i><div class="span1">首页</div></a></li>
+            <li class="bui-btn bui-box-vertical"><a href="/IOT/IOT_Order_Sec/Personal_m"><i class="icon">&#xe67a;</i><div class="span1">我的</div></a></li>
+        </ul>
+    </footer>
+</div>
+
+
